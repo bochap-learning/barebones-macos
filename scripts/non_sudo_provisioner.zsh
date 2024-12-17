@@ -172,6 +172,65 @@ uninstall_jq() {
   return  0    
 }
 
+install_temporal() {
+  local app="temporal"
+  if command_exists "$app"; then
+    echo "$app already installed"
+    return 0
+  fi
+  local temp_folder=$(generate_temp_folder)
+  if [[ $? -ne 0 ]]; then
+    return 1
+  fi
+  local output_path="$temp_folder/$app"
+  local url="https://temporal.download/cli/archive/latest?platform=darwin&arch=arm64"
+  if ! curl -o "$temp_folder/$app.tar.gz" -L "$url"; then
+    echo "Error downloading $app."
+    rm -rf "$temp_folder"
+    return 1
+  fi
+  tar -xf "$temp_folder/$app.tar.gz" -C "$temp_folder"
+  rm "$temp_folder/$app.tar.gz"
+  chmod +x "$temp_folder/temporal"
+
+  local section="$app"
+  local parser="yq"  
+  local profile_file="$HOME/.zshrc"
+  local toolchain_folder=$(get_config_value "$config_file" "$QUERY_TOOLCHAIN_PATH" "$parser")
+  if [[ $? -ne 0 ]]; then
+    return 1
+  fi
+
+  local app_folder="$toolchain_folder/$app"
+  if ! create_folder "${HOME}/$app_folder"; then
+    echo "Error creating folder for $app."
+    rm -rf "$temp_folder"
+    return 1
+  fi
+
+  mv "$temp_folder/temporal" "${HOME}/$app_folder/"
+  rm -rf "$temp_folder"
+  
+  local content='export PATH="$HOME/'"$app_folder"':$PATH"'
+  if ! add_profile_section "$profile_file" "$section" "$content"; then
+    return 1
+  fi
+  echo "$app installation completed"
+  return 0
+}
+
+uninstall_temporal() {
+  if ! command_exists "temporal"; then
+    echo "temporal not installed"
+    return 0
+  fi
+  local app="temporal"
+  if ! uninstall_curled_binary "yq" "$app" "$profile_file"; then
+    return 1
+  fi
+  return  0    
+}
+
 typeset VENV_NAME="data_platform"
 
 setup_venv() {
@@ -198,6 +257,7 @@ setup_venv() {
   $venv_path/bin/pip install alembic
   $venv_path/bin/pip install python-dotenv
   $venv_path/bin/pip install oci-cli
+  $venv_path/bin/pip install dp-cli
 
   local section="venv"
   local content=$(cat << EOF
@@ -292,6 +352,10 @@ non_sudo_setup() {
     return 1
   fi
 
+  if ! install_temporal; then
+    return 1
+  fi
+
   if ! setup_venv; then
     return 1
   fi
@@ -306,6 +370,10 @@ non_sudo_cleanup() {
     return 1
   fi
   if ! cleanup_venv; then
+    return 1
+  fi
+
+  if ! uninstall_temporal; then
     return 1
   fi
 

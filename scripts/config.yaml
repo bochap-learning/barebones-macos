@@ -1,0 +1,28 @@
+general:
+  toolchain_path: ds/toolchain
+  repo_path: ds/repo
+  env_path: ds/env
+aws_cli:
+  version: latest
+docker:
+  version: latest
+git_repository:
+  version: latest
+jdk:
+  version: latest
+knative:
+  version: latest
+kubectl:
+  version: latest
+oracle_cli:
+  version: latest
+peotry:
+  version: latest
+python:
+  version: latest
+vscode:
+  version: latest
+xcode:
+  version: latest
+repository:
+  - TODO add list of repos

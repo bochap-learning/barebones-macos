@@ -252,12 +252,53 @@ setup_venv() {
   python -m venv "$venv_path"
   source "$venv_path/bin/activate"
   $venv_path/bin/pip install -U pip setuptools
-  $venv_path/bin/pip install poetry
-  $venv_path/bin/pip install temporalio
-  $venv_path/bin/pip install alembic
-  $venv_path/bin/pip install python-dotenv
-  $venv_path/bin/pip install oci-cli
-  $venv_path/bin/pip install dp-cli
+  $venv_path/bin/pip install pip-tools
+
+  local in_file="${HOME}/${env_folder}/requirements.in"
+  cat << EOF > "$in_file"
+poetry
+temporalio
+alembic
+python-dotenv
+oci-cli
+EOF
+  local requirements_file="${HOME}/${env_folder}/requirements.txt"
+  $venv_path/bin/pip-compile --output-file "${requirements_file}" "$in_file"
+  $venv_path/bin/pip install -r "${requirements_file}"
+  $venv_path/bin/pip install dp-cli   # install this outside of requirements.txt due to dependency issues
+
+  # Write clone.zsh script
+  local clone_script="${HOME}/${env_folder}/clone.zsh"
+  cat << 'EOF' > "$clone_script"
+#!/bin/zsh
+
+# Check if the correct number of arguments is provided
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <env_name> <requirements_file>"
+  exit 1
+fi
+
+ENV_NAME=$1
+REQUIREMENTS_FILE=$2
+
+# Create a new virtual environment
+python3 -m venv $ENV_NAME
+
+# Activate the new virtual environment
+source $ENV_NAME/bin/activate
+
+# Install requirements
+if ! [ -f $REQUIREMENTS_FILE ]; then
+  rm -rf $ENV_NAME
+  echo "$REQUIREMENTS_FILE not found"
+  exit 1
+fi
+
+pip install -r $REQUIREMENTS_FILE
+EOF
+
+  # Make clone.zsh executable
+  chmod +x "$clone_script"
 
   local section="venv"
   local content=$(cat << EOF
